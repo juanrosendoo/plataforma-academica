@@ -1,0 +1,40 @@
+name: Continuous Integration (CI)
+
+# O pipeline será acionado em todo push ou pull request nas branches main e develop
+on:
+  push:
+    branches: [ "main", "develop" ]
+  pull_request:
+    branches: [ "main", "develop" ]
+
+jobs:
+  test-services:
+    runs-on: ubuntu-latest
+
+    steps:
+    # 1. Faz o download do código do repositório para a máquina virtual do GitHub
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    # 2. Configura o ambiente com o Python 3.11
+    - name: Set up Python 3.11
+      uses: actions/setup-python@v5
+      with:
+        python-python: '3.11'
+
+    # 3. Instala as dependências e roda os testes do Auth Service
+    - name: Install & Test Auth Service
+      run: |
+        cd services/auth-service
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        # Comando para rodar os testes (quando vocês criarem os arquivos de teste)
+        # python -m pytest 
+
+    # 4. Instala as dependências e roda os testes do Academic Service
+    - name: Install & Test Academic Service
+      run: |
+        cd services/academic-service
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        # python -m pytest
