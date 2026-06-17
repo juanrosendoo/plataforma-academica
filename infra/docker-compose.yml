@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # Banco de Dados
   db-academico:
@@ -16,6 +14,7 @@ services:
   auth-service:
     build:
       context: ../services/auth-service
+      dockerfile: DockerFile  
     ports:
       - "8001:8000"
     environment:
@@ -27,6 +26,7 @@ services:
   academic-service:
     build:
       context: ../services/academic-service
+      dockerfile: DockerFile  
     ports:
       - "8002:8000"
     environment:
