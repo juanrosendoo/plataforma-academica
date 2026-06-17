@@ -28,8 +28,8 @@ jobs:
         cd services/auth-service
         python -m pip install --upgrade pip
         if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        # Comando para rodar os testes (quando vocês criarem os arquivos de teste)
-        # python -m pytest 
+        pip install pytest httpx
+        python -m pytest
 
     # 4. Instala as dependências e roda os testes do Academic Service
     - name: Install & Test Academic Service
