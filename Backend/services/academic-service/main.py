@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 import models
 import schemas
 from database import SessionLocal, engine, get_db
+from observability import setup_observability
 from seed import seed_academic_data
 
 
@@ -24,6 +25,7 @@ models.Base.metadata.create_all(bind=engine)
 seed_data()
 
 app = FastAPI(title="Academic Service")
+setup_observability(app, "academic-service")
 
 app.add_middleware(
     CORSMiddleware,
