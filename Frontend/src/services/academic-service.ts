@@ -1,97 +1,71 @@
-import { delay } from "./http";
-import {
-  alunos,
-  atividades as atividadesMock,
-  disciplinas,
-  entregas as entregasMock,
-  matriculas,
-  professores,
-  turmas,
-  usuarios,
-} from "@/lib/mock-data";
+import { ACADEMIC_BASE_URL, http } from "./http";
 import type { Atividade, Disciplina, Entrega, Turma, Usuario } from "@/types";
 
-// Estado em memória para mutação durante a sessão
-let _atividades = [...atividadesMock];
-let _entregas = [...entregasMock];
-
 export async function listDisciplinas(): Promise<Disciplina[]> {
-  return delay([...disciplinas], 500);
+  return http<Disciplina[]>(ACADEMIC_BASE_URL, "/disciplinas");
 }
 
 export async function listTurmas(): Promise<Turma[]> {
-  return delay([...turmas], 500);
+  return http<Turma[]>(ACADEMIC_BASE_URL, "/turmas");
 }
 
 export async function getTurma(id: string) {
-  await delay(null, 400);
-  const turma = turmas.find((t) => t.id === id);
-  if (!turma) throw new Error("Turma não encontrada");
-  const disciplina = disciplinas.find((d) => d.id === turma.id_disciplina)!;
-  const professor = usuarios.find((u) => u.id === turma.id_professor)!;
-  const alunosTurma: Usuario[] = matriculas
-    .filter((m) => m.id_turma === id)
-    .map((m) => usuarios.find((u) => u.id === m.id_aluno)!)
-    .filter(Boolean);
-  return { turma, disciplina, professor, alunos: alunosTurma };
+  return http<{
+    turma: Turma;
+    disciplina: Disciplina;
+    professor: Usuario;
+    alunos: Usuario[];
+  }>(ACADEMIC_BASE_URL, `/turmas/${id}`);
 }
 
 export async function turmasDoProfessor(idProfessor: string): Promise<Turma[]> {
-  return delay(turmas.filter((t) => t.id_professor === idProfessor), 500);
+  return http<Turma[]>(ACADEMIC_BASE_URL, `/professores/${idProfessor}/turmas`);
 }
 
 export async function turmasDoAluno(idAluno: string): Promise<Turma[]> {
-  const ids = matriculas.filter((m) => m.id_aluno === idAluno).map((m) => m.id_turma);
-  return delay(turmas.filter((t) => ids.includes(t.id)), 500);
+  return http<Turma[]>(ACADEMIC_BASE_URL, `/alunos/${idAluno}/turmas`);
 }
 
 export async function listAtividades(): Promise<Atividade[]> {
-  return delay([..._atividades], 500);
+  return http<Atividade[]>(ACADEMIC_BASE_URL, "/atividades");
 }
 
 export async function atividadesDaTurma(idTurma: string): Promise<Atividade[]> {
-  return delay(_atividades.filter((a) => a.id_turma === idTurma), 400);
+  return http<Atividade[]>(ACADEMIC_BASE_URL, `/turmas/${idTurma}/atividades`);
 }
 
 export async function atividadesDoAluno(idAluno: string): Promise<Atividade[]> {
-  const ids = matriculas.filter((m) => m.id_aluno === idAluno).map((m) => m.id_turma);
-  return delay(_atividades.filter((a) => ids.includes(a.id_turma)), 500);
+  return http<Atividade[]>(ACADEMIC_BASE_URL, `/alunos/${idAluno}/atividades`);
 }
 
 export async function atividadesDoProfessor(idProfessor: string): Promise<Atividade[]> {
-  const ids = turmas.filter((t) => t.id_professor === idProfessor).map((t) => t.id);
-  return delay(_atividades.filter((a) => ids.includes(a.id_turma)), 500);
+  return http<Atividade[]>(ACADEMIC_BASE_URL, `/professores/${idProfessor}/atividades`);
 }
 
 export async function getAtividade(id: string) {
-  await delay(null, 300);
-  const atividade = _atividades.find((a) => a.id === id);
-  if (!atividade) throw new Error("Atividade não encontrada");
-  const turma = turmas.find((t) => t.id === atividade.id_turma)!;
-  const disciplina = disciplinas.find((d) => d.id === turma.id_disciplina)!;
-  return { atividade, turma, disciplina };
+  return http<{
+    atividade: Atividade;
+    turma: Turma;
+    disciplina: Disciplina;
+  }>(ACADEMIC_BASE_URL, `/atividades/${id}`);
 }
 
 export async function createAtividade(data: Omit<Atividade, "id">): Promise<Atividade> {
-  await delay(null, 600);
-  const nova: Atividade = { ...data, id: `a${Date.now()}` };
-  _atividades = [..._atividades, nova];
-  return nova;
+  return http<Atividade>(ACADEMIC_BASE_URL, "/atividades", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
 }
 
 export async function entregasDaAtividade(idAtividade: string) {
-  await delay(null, 400);
-  return _entregas
-    .filter((e) => e.id_atividade === idAtividade)
-    .map((e) => ({
-      ...e,
-      aluno: usuarios.find((u) => u.id === e.id_aluno)!,
-    }));
+  return http<(Entrega & { aluno: Usuario })[]>(
+    ACADEMIC_BASE_URL,
+    `/atividades/${idAtividade}/entregas`,
+  );
 }
 
 export async function minhaEntrega(idAtividade: string, idAluno: string): Promise<Entrega | null> {
-  await delay(null, 300);
-  return _entregas.find((e) => e.id_atividade === idAtividade && e.id_aluno === idAluno) ?? null;
+  return http<Entrega | null>(ACADEMIC_BASE_URL, `/atividades/${idAtividade}/entregas/${idAluno}`);
 }
 
 export async function submeterEntrega(
@@ -99,38 +73,23 @@ export async function submeterEntrega(
   idAluno: string,
   conteudo: string,
 ): Promise<Entrega> {
-  await delay(null, 600);
-  const existente = _entregas.find(
-    (e) => e.id_atividade === idAtividade && e.id_aluno === idAluno,
-  );
-  if (existente) {
-    existente.conteudo = conteudo;
-    existente.dataEntrega = new Date().toISOString().slice(0, 10);
-    return existente;
-  }
-  const nova: Entrega = {
-    id: `e${Date.now()}`,
-    id_aluno: idAluno,
-    id_atividade: idAtividade,
-    conteudo,
-    dataEntrega: new Date().toISOString().slice(0, 10),
-    nota: null,
-  };
-  _entregas = [..._entregas, nova];
-  return nova;
+  return http<Entrega>(ACADEMIC_BASE_URL, `/atividades/${idAtividade}/entregas`, {
+    method: "POST",
+    body: JSON.stringify({ id_aluno: idAluno, conteudo }),
+  });
 }
 
 export async function atribuirNota(idEntrega: string, nota: number): Promise<Entrega> {
-  await delay(null, 500);
-  const e = _entregas.find((x) => x.id === idEntrega);
-  if (!e) throw new Error("Entrega não encontrada");
-  e.nota = nota;
-  return e;
+  return http<Entrega>(ACADEMIC_BASE_URL, `/entregas/${idEntrega}/nota`, {
+    method: "PATCH",
+    body: JSON.stringify({ nota }),
+  });
 }
 
-export function getProfessorInfo(idUsuario: string) {
-  return professores.find((p) => p.id_usuario === idUsuario);
+export async function getProfessorInfo(idUsuario: string) {
+  return http(ACADEMIC_BASE_URL, `/professores/info/${idUsuario}`);
 }
-export function getAlunoInfo(idUsuario: string) {
-  return alunos.find((a) => a.id_usuario === idUsuario);
+
+export async function getAlunoInfo(idUsuario: string) {
+  return http(ACADEMIC_BASE_URL, `/alunos/info/${idUsuario}`);
 }

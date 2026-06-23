@@ -7,7 +7,7 @@ on:
     branches: [ "main", "develop" ]
 
 jobs:
-  test-services:
+  backend-tests:
     runs-on: ubuntu-latest
 
     steps:
@@ -19,19 +19,46 @@ jobs:
       with:
         python-version: '3.11'
 
-    - name: Install & Test Auth Service
+    - name: Install Auth Service dependencies
       run: |
         cd Backend/services/auth-service
         python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
-        pip install pytest httpx
+        pip install -r requirements.txt
+
+    - name: Test Auth Service
+      run: |
+        cd Backend/services/auth-service
         python -m pytest
 
-    - name: Install & Test Academic Service
+    - name: Install Academic Service dependencies
       run: |
         cd Backend/services/academic-service
         python -m pip install --upgrade pip
-        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+        pip install -r requirements.txt
+
+    - name: Test Academic Service
+      run: |
+        cd Backend/services/academic-service
         python -m pytest
 
-        
+  frontend-build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '22'
+        cache: npm
+        cache-dependency-path: Frontend/package-lock.json
+
+    - name: Install Frontend dependencies
+      run: npm ci
+      working-directory: Frontend
+
+    - name: Build Frontend
+      run: npm run build
+      working-directory: Frontend

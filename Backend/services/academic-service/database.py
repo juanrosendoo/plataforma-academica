@@ -1,12 +1,16 @@
 import os
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-DATABASE_URL = os.getenv("DB_URL", "mysql+pymysql://root:root@db-academic:3306/academic_db")
 
-engine = create_engine(DATABASE_URL)
+DATABASE_URL = os.getenv("DB_URL", "sqlite:///./academic.db")
+
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
 
 def get_db():
     db = SessionLocal()
