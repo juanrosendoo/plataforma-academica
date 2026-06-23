@@ -74,6 +74,63 @@ services:
       - auth-service
       - academic-service
 
+  prometheus:
+    image: prom/prometheus:v3.0.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    depends_on:
+      - auth-service
+      - academic-service
+
+  loki:
+    image: grafana/loki:3.3.2
+    command: -config.file=/etc/loki/local-config.yaml
+    ports:
+      - "3101:3100"
+    volumes:
+      - ./loki/loki-config.yml:/etc/loki/local-config.yaml:ro
+      - loki_data:/loki
+
+  observability-home:
+    image: nginx:1.27-alpine
+    ports:
+      - "3100:80"
+    volumes:
+      - ./observability-home/index.html:/usr/share/nginx/html/index.html:ro
+    depends_on:
+      - grafana
+      - prometheus
+      - loki
+
+  promtail:
+    image: grafana/promtail:3.3.2
+    command: -config.file=/etc/promtail/config.yml
+    volumes:
+      - ./promtail/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    depends_on:
+      - loki
+
+  grafana:
+    image: grafana/grafana:11.4.0
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_USERS_ALLOW_SIGN_UP=false
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./grafana/provisioning:/etc/grafana/provisioning:ro
+    depends_on:
+      - prometheus
+      - loki
+
 volumes:
   auth_data:
   academic_data:
+
+  loki_data:
+  grafana_data:

@@ -9,6 +9,7 @@ from sqlalchemy.orm import Session
 import models
 import schemas
 from database import SessionLocal, engine, get_db
+from observability import setup_observability
 from seed import seed_auth_data
 from security import create_access_token, decode_access_token, verify_password
 
@@ -36,6 +37,7 @@ def initialize_database(max_attempts: int = 30, delay_seconds: int = 2):
 initialize_database()
 
 app = FastAPI(title="Auth Service")
+setup_observability(app, "auth-service")
 
 app.add_middleware(
     CORSMiddleware,

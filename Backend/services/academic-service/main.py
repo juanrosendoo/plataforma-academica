@@ -12,6 +12,7 @@ import models
 import schemas
 from database import SessionLocal, engine, get_db
 from security import decode_access_token
+from observability import setup_observability
 from seed import seed_academic_data
 
 
@@ -38,6 +39,7 @@ def initialize_database(max_attempts: int = 30, delay_seconds: int = 2):
 initialize_database()
 
 app = FastAPI(title="Academic Service")
+setup_observability(app, "academic-service")
 
 app.add_middleware(
     CORSMiddleware,
