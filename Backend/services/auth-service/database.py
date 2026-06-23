@@ -1,15 +1,17 @@
 import os
+
 from sqlalchemy import create_engine
 from sqlalchemy.orm import declarative_base, sessionmaker
 
-# Resgata a URL injetada pelo Docker Compose
-DATABASE_URL = os.getenv("DB_URL", "mysql+pymysql://root:root@db-auth:3306/auth_db")
 
-engine = create_engine(DATABASE_URL)
+DATABASE_URL = os.getenv("DB_URL", "sqlite:///./auth.db")
+
+connect_args = {"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+engine = create_engine(DATABASE_URL, connect_args=connect_args)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# Dependency para injetar o banco nas rotas do FastAPI
+
 def get_db():
     db = SessionLocal()
     try:
