@@ -1,13 +1,16 @@
 import os
+import time
 
 from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 import models
 import schemas
 from database import SessionLocal, engine, get_db
 from seed import seed_auth_data
+from security import create_access_token, decode_access_token, verify_password
 
 
 def seed_data():
@@ -18,8 +21,19 @@ def seed_data():
         db.close()
 
 
-models.Base.metadata.create_all(bind=engine)
-seed_data()
+def initialize_database(max_attempts: int = 30, delay_seconds: int = 2):
+    for attempt in range(1, max_attempts + 1):
+        try:
+            models.Base.metadata.create_all(bind=engine)
+            seed_data()
+            return
+        except OperationalError:
+            if attempt == max_attempts:
+                raise
+            time.sleep(delay_seconds)
+
+
+initialize_database()
 
 app = FastAPI(title="Auth Service")
 
@@ -42,10 +56,12 @@ def usuario_from_token(authorization: str | None, db: Session) -> models.Usuario
         raise HTTPException(status_code=401, detail="Token ausente")
 
     token = authorization.removeprefix("Bearer ").strip()
-    if not token.startswith("mock-token-"):
+    try:
+        payload = decode_access_token(token)
+    except ValueError:
         raise HTTPException(status_code=401, detail="Token invalido")
 
-    user_id = token.replace("mock-token-", "", 1)
+    user_id = payload.get("sub")
     usuario = db.query(models.Usuario).filter(models.Usuario.id == user_id).first()
     if not usuario:
         raise HTTPException(status_code=401, detail="Sessao invalida")
@@ -68,10 +84,10 @@ def login(payload: schemas.LoginIn, db: Session = Depends(get_db)):
         .filter(models.Usuario.email == payload.email.lower())
         .first()
     )
-    if not usuario:
+    if not usuario or not verify_password(payload.senha, usuario.senha):
         raise HTTPException(status_code=401, detail="Credenciais invalidas")
 
-    return {"token": f"mock-token-{usuario.id}", "usuario": usuario}
+    return {"token": create_access_token(usuario.id, usuario.tipo.value), "usuario": usuario}
 
 
 @app.get("/auth/me", response_model=schemas.UsuarioOut)

@@ -3,14 +3,14 @@ services:
   db-auth:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: auth_db
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${AUTH_DB_NAME:-auth_db}
     ports:
       - "3308:3306"
     volumes:
       - auth_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root}"]
       interval: 5s
       timeout: 10s
       retries: 5
@@ -19,14 +19,14 @@ services:
   db-academic:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: root
-      MYSQL_DATABASE: academic_db
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-root}
+      MYSQL_DATABASE: ${ACADEMIC_DB_NAME:-academic_db}
     ports:
       - "3307:3306"
     volumes:
       - academic_data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-p${MYSQL_ROOT_PASSWORD:-root}"]
       interval: 5s
       timeout: 10s
       retries: 5
@@ -38,7 +38,10 @@ services:
     ports:
       - "8001:8000"
     environment:
-      - DB_URL=mysql+pymysql://root:root@db-auth:3306/auth_db
+      - DB_URL=mysql+pymysql://root:${MYSQL_ROOT_PASSWORD:-root}@db-auth:3306/${AUTH_DB_NAME:-auth_db}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-change-me}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
+      - JWT_EXPIRE_MINUTES=${JWT_EXPIRE_MINUTES:-60}
     depends_on:
       db-auth:
         condition: service_healthy
@@ -50,10 +53,26 @@ services:
     ports:
       - "8002:8000"
     environment:
-      - DB_URL=mysql+pymysql://root:root@db-academic:3306/academic_db
+      - DB_URL=mysql+pymysql://root:${MYSQL_ROOT_PASSWORD:-root}@db-academic:3306/${ACADEMIC_DB_NAME:-academic_db}
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:-dev-secret-change-me}
+      - JWT_ALGORITHM=${JWT_ALGORITHM:-HS256}
     depends_on:
       db-academic:
         condition: service_healthy
+
+  gateway-service:
+    build:
+      context: ../services/gateway-service
+      dockerfile: DockerFile
+    ports:
+      - "8000:8000"
+    environment:
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://auth-service:8000}
+      - ACADEMIC_SERVICE_URL=${ACADEMIC_SERVICE_URL:-http://academic-service:8000}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    depends_on:
+      - auth-service
+      - academic-service
 
 volumes:
   auth_data:

@@ -4,7 +4,14 @@ env/
 **/.idea/
 
 **/__pycache__/
+.pytest_cache/
+.mypy_cache/
 
 .env
 *.env
 *.db
+*.log
+
+node_modules/
+Frontend/node_modules/
+Frontend/dist/

@@ -14,12 +14,12 @@ def test_read_root():
 def test_login_and_me():
     response = client.post(
         "/auth/login",
-        json={"email": "aluno@uni.edu", "senha": "qualquer-senha"},
+        json={"email": "aluno@uni.edu", "senha": "aluno123"},
     )
 
     assert response.status_code == 200
     data = response.json()
-    assert data["token"] == "mock-token-u4"
+    assert data["token"].count(".") == 2
     assert data["usuario"]["tipo"] == "Aluno"
 
     me = client.get("/auth/me", headers={"Authorization": f"Bearer {data['token']}"})
@@ -31,6 +31,15 @@ def test_login_rejects_unknown_user():
     response = client.post(
         "/auth/login",
         json={"email": "missing@uni.edu", "senha": "x"},
+    )
+
+    assert response.status_code == 401
+
+
+def test_login_rejects_wrong_password():
+    response = client.post(
+        "/auth/login",
+        json={"email": "aluno@uni.edu", "senha": "senha-errada"},
     )
 
     assert response.status_code == 401
