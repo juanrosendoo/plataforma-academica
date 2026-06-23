@@ -1,0 +1,20 @@
+import React from 'react'
+import ReactDOM from 'react-dom/client'
+import { RouterProvider } from '@tanstack/react-router'
+
+// Importa a configuração de rotas que já existe no seu projeto
+import { router } from './router'
+
+// Importa o CSS global
+import './styles.css'
+
+const rootElement = document.getElementById('root')!
+
+if (!rootElement.innerHTML) {
+  const root = ReactDOM.createRoot(rootElement)
+  root.render(
+    <React.StrictMode>
+      <RouterProvider router={router} />
+    </React.StrictMode>,
+  )
+}
