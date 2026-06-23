@@ -1,38 +1,60 @@
 services:
-  # Banco de Dados
-  db-academico:
+  # Banco do Auth Service
+  db-auth:
     image: mysql:8.0
     environment:
-      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
-      MYSQL_DATABASE: ${MYSQL_DATABASE}
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: auth_db
     ports:
-      - "${DB_PORT}:3306"
+      - "3308:3306"
     volumes:
-      - db_data:/var/lib/mysql
+      - auth_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
 
-  # Microsserviço de Autenticação
+  # Banco do Academic Service
+  db-academic:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: academic_db
+    ports:
+      - "3307:3306"
+    volumes:
+      - academic_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-u", "root", "-proot"]
+      interval: 5s
+      timeout: 10s
+      retries: 5
+
   auth-service:
     build:
       context: ../services/auth-service
-      dockerfile: DockerFile  
+      dockerfile: DockerFile
     ports:
       - "8001:8000"
     environment:
-      - DB_URL=${DB_URL}
+      - DB_URL=mysql+pymysql://root:root@db-auth:3306/auth_db
     depends_on:
-      - db-academico
+      db-auth:
+        condition: service_healthy
 
-  # Microsserviço Acadêmico
   academic-service:
     build:
       context: ../services/academic-service
-      dockerfile: DockerFile  
+      dockerfile: DockerFile
     ports:
       - "8002:8000"
     environment:
-      - DB_URL=${DB_URL}
+      - DB_URL=mysql+pymysql://root:root@db-academic:3306/academic_db
     depends_on:
-      - db-academico
+      db-academic:
+        condition: service_healthy
 
 volumes:
-  db_data:
+  auth_data:
+  academic_data:
