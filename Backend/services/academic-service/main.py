@@ -1,6 +1,10 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 import os
 import httpx
+import models
+from database import engine, get_db
+
+models.Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="Academic Service")
 
@@ -26,3 +30,7 @@ async def validar_aluno(user_id: int):
             
         except httpx.RequestError:
             raise HTTPException(status_code=503, detail="Auth Service indisponível")
+        
+@app.get("/alunos")
+def listar_alunos(db: Session = Depends(get_db)):
+    return db.query(models.Aluno).all()
