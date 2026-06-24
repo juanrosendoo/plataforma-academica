@@ -7,7 +7,9 @@ param(
     [string]$ImageRepository,
     [string]$ImageTag = "latest",
     [string]$MysqlRootPassword = "root",
-    [string]$JwtSecretKey = "dev-secret-change-me"
+    [string]$JwtSecretKey = "dev-secret-change-me",
+    [string]$GhcrUsername = "",
+    [string]$GhcrToken = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -24,6 +26,21 @@ kubectl create secret generic plataforma-secrets `
     --dry-run=client `
     -o yaml | kubectl apply -f -
 
+if ($GhcrUsername -and $GhcrToken) {
+    kubectl create secret docker-registry ghcr-pull-secret `
+        --namespace $Namespace `
+        --docker-server=$Registry `
+        --docker-username=$GhcrUsername `
+        --docker-password=$GhcrToken `
+        --dry-run=client `
+        -o yaml | kubectl apply -f -
+
+    kubectl patch serviceaccount default `
+        --namespace $Namespace `
+        --type merge `
+        -p '{"imagePullSecrets":[{"name":"ghcr-pull-secret"}]}'
+}
+
 kubectl apply -f (Join-Path $k8sRoot "configmap.yaml")
 kubectl apply -f (Join-Path $k8sRoot "mysql-auth.yaml")
 kubectl apply -f (Join-Path $k8sRoot "mysql-academic.yaml")
@@ -34,6 +51,7 @@ kubectl apply -f (Join-Path $k8sRoot "observability/prometheus.yaml")
 kubectl apply -f (Join-Path $k8sRoot "observability/loki.yaml")
 kubectl apply -f (Join-Path $k8sRoot "observability/grafana.yaml")
 kubectl apply -f (Join-Path $k8sRoot "observability/promtail.yaml")
+kubectl apply -f (Join-Path $k8sRoot "observability/home.yaml")
 
 $imagePrefix = "$Registry/$($ImageOwner.ToLower())/$($ImageRepository.ToLower())"
 
@@ -52,9 +70,11 @@ kubectl rollout status deployment/db-academic --namespace $Namespace --timeout=1
 kubectl rollout status deployment/auth-service --namespace $Namespace --timeout=180s
 kubectl rollout status deployment/academic-service --namespace $Namespace --timeout=180s
 kubectl rollout status deployment/gateway-service --namespace $Namespace --timeout=180s
+kubectl rollout status deployment/observability-home --namespace $Namespace --timeout=180s
 
 Write-Output ""
 Write-Output "Local Kubernetes deployment completed."
+Write-Output "Observability Home:  http://localhost:30100"
 Write-Output "Gateway NodePort:    http://localhost:30080"
 Write-Output "Prometheus NodePort: http://localhost:30090"
 Write-Output "Grafana NodePort:    http://localhost:30300"
