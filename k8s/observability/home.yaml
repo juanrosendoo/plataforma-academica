@@ -1,0 +1,177 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: observability-home
+  namespace: plataforma-academica
+data:
+  index.html: |
+    <!doctype html>
+    <html lang="pt-BR">
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Observabilidade da Plataforma Academica</title>
+        <style>
+          :root {
+            color-scheme: light dark;
+            font-family: Arial, Helvetica, sans-serif;
+            background: #f6f8fb;
+            color: #172033;
+          }
+
+          body {
+            margin: 0;
+          }
+
+          main {
+            width: min(920px, calc(100% - 32px));
+            margin: 48px auto;
+          }
+
+          h1 {
+            margin: 0 0 8px;
+            font-size: 32px;
+            line-height: 1.2;
+          }
+
+          p {
+            margin: 0 0 24px;
+            color: #4d5b73;
+            line-height: 1.5;
+          }
+
+          .grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+            gap: 16px;
+          }
+
+          a {
+            display: block;
+            padding: 18px;
+            border: 1px solid #d7deea;
+            border-radius: 8px;
+            background: #fff;
+            color: #172033;
+            text-decoration: none;
+          }
+
+          a:hover {
+            border-color: #2f6fed;
+          }
+
+          strong {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 18px;
+          }
+
+          span {
+            color: #5c6b82;
+            line-height: 1.4;
+          }
+
+          code {
+            background: #e9eef7;
+            border-radius: 4px;
+            padding: 2px 5px;
+          }
+
+          @media (prefers-color-scheme: dark) {
+            :root {
+              background: #10141d;
+              color: #eef3ff;
+            }
+
+            p,
+            span {
+              color: #aeb9cc;
+            }
+
+            a {
+              background: #171d29;
+              border-color: #2a3447;
+              color: #eef3ff;
+            }
+
+            code {
+              background: #222b3d;
+            }
+          }
+        </style>
+      </head>
+      <body>
+        <main>
+          <h1>Observabilidade da Plataforma Academica</h1>
+          <p>
+            Use esta pagina como ponto de entrada no navegador para a stack de observabilidade no Kubernetes local.
+            Se os NodePorts nao responderem, execute <code>.\scripts\port-forward-local-k8s.ps1</code>.
+          </p>
+
+          <div class="grid">
+            <a href="http://localhost:18080">
+              <strong>API Gateway</strong>
+              <span>Entrada unica para auth-service e academic-service.</span>
+            </a>
+
+            <a href="http://localhost:13000/d/academic-platform-observability/observabilidade-da-plataforma-academica">
+              <strong>Dashboard do Grafana</strong>
+              <span>Metricas e logs centralizados dos servicos. Login: admin / admin.</span>
+            </a>
+
+            <a href="http://localhost:19090/targets">
+              <strong>Targets do Prometheus</strong>
+              <span>Status da coleta do auth-service, academic-service e Prometheus.</span>
+            </a>
+
+            <a href="http://localhost:13100/ready">
+              <strong>Prontidao da API do Loki</strong>
+              <span>Endpoint de saude do armazenamento centralizado de logs.</span>
+            </a>
+          </div>
+        </main>
+      </body>
+    </html>
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: observability-home
+  namespace: plataforma-academica
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: observability-home
+  template:
+    metadata:
+      labels:
+        app: observability-home
+    spec:
+      containers:
+        - name: observability-home
+          image: nginx:1.27-alpine
+          ports:
+            - containerPort: 80
+          volumeMounts:
+            - name: observability-home
+              mountPath: /usr/share/nginx/html/index.html
+              subPath: index.html
+      volumes:
+        - name: observability-home
+          configMap:
+            name: observability-home
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: observability-home
+  namespace: plataforma-academica
+spec:
+  type: NodePort
+  selector:
+    app: observability-home
+  ports:
+    - port: 80
+      targetPort: 80
+      nodePort: 30100

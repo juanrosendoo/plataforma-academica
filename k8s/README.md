@@ -40,10 +40,25 @@ The script creates/updates the `ghcr-pull-secret` image pull secret in the `plat
 
 With Docker Desktop Kubernetes, NodePorts are available at:
 
+- Observability Home: `http://localhost:30100`
 - Gateway: `http://localhost:30080`
 - Prometheus: `http://localhost:30090`
 - Grafana: `http://localhost:30300`
 - Loki: `http://localhost:30101`
+
+If NodePorts do not respond from the host machine, start local port-forwards:
+
+```powershell
+.\scripts\port-forward-local-k8s.ps1
+```
+
+Fallback URLs:
+
+- Observability Home: `http://localhost:13101`
+- Gateway: `http://localhost:18080`
+- Prometheus: `http://localhost:19090`
+- Grafana: `http://localhost:13000`
+- Loki: `http://localhost:13100`
 
 Grafana credentials:
 

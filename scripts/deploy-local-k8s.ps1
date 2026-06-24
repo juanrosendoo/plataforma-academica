@@ -51,6 +51,7 @@ kubectl apply -f (Join-Path $k8sRoot "observability/prometheus.yaml")
 kubectl apply -f (Join-Path $k8sRoot "observability/loki.yaml")
 kubectl apply -f (Join-Path $k8sRoot "observability/grafana.yaml")
 kubectl apply -f (Join-Path $k8sRoot "observability/promtail.yaml")
+kubectl apply -f (Join-Path $k8sRoot "observability/home.yaml")
 
 $imagePrefix = "$Registry/$($ImageOwner.ToLower())/$($ImageRepository.ToLower())"
 
@@ -69,9 +70,11 @@ kubectl rollout status deployment/db-academic --namespace $Namespace --timeout=1
 kubectl rollout status deployment/auth-service --namespace $Namespace --timeout=180s
 kubectl rollout status deployment/academic-service --namespace $Namespace --timeout=180s
 kubectl rollout status deployment/gateway-service --namespace $Namespace --timeout=180s
+kubectl rollout status deployment/observability-home --namespace $Namespace --timeout=180s
 
 Write-Output ""
 Write-Output "Local Kubernetes deployment completed."
+Write-Output "Observability Home:  http://localhost:30100"
 Write-Output "Gateway NodePort:    http://localhost:30080"
 Write-Output "Prometheus NodePort: http://localhost:30090"
 Write-Output "Grafana NodePort:    http://localhost:30300"
