@@ -157,7 +157,7 @@
       },
       "targets": [
         {
-          "expr": "sum by (service) (rate(http_requests_total{status_code=~\"5..\"}[5m])) or on(service) (sum by (service) (rate(http_requests_total[5m])) * 0)",
+          "expr": "sum by (service) ({__name__=~\"http_requests_total|upstream_http_requests_total\", status_code=~\"5..\"}) or on(service) (sum by (service) ({__name__=~\"http_requests_total|upstream_http_requests_total\"}) * 0)",
           "legendFormat": "{{service}}",
           "refId": "A"
         }

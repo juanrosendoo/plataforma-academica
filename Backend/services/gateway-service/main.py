@@ -5,6 +5,7 @@ import time
 import httpx
 from fastapi import FastAPI, HTTPException, Request, Response
 from fastapi.middleware.cors import CORSMiddleware
+from prometheus_client import CONTENT_TYPE_LATEST, Counter, Histogram, generate_latest
 
 
 logging.basicConfig(
@@ -44,6 +45,17 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+UPSTREAM_REQUEST_COUNT = Counter(
+    "upstream_http_requests_total",
+    "Total requests forwarded by the gateway to downstream services",
+    ("service", "method", "path", "status_code"),
+)
+UPSTREAM_REQUEST_LATENCY = Histogram(
+    "upstream_http_request_duration_seconds",
+    "Gateway downstream request duration in seconds",
+    ("service", "method", "path"),
+)
+
 
 @app.middleware("http")
 async def request_logging(request: Request, call_next):
@@ -72,6 +84,11 @@ def root():
 @app.get("/health")
 def health():
     return {"status": "ok", "service": "gateway-service"}
+
+
+@app.get("/metrics", include_in_schema=False)
+def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 
 @app.get("/responsibilities")
@@ -114,7 +131,12 @@ def response_headers(response: httpx.Response) -> dict[str, str]:
     }
 
 
-async def proxy_request(request: Request, target_base_url: str, target_path: str) -> Response:
+async def proxy_request(
+    request: Request,
+    target_base_url: str,
+    target_path: str,
+    downstream_service: str,
+) -> Response:
     target_url = httpx.URL(target_base_url.rstrip("/") + target_path)
     if request.url.query:
         target_url = target_url.copy_with(query=request.url.query.encode("utf-8"))
@@ -131,6 +153,18 @@ async def proxy_request(request: Request, target_base_url: str, target_path: str
                 headers=forwarded_headers(request),
             )
     except httpx.RequestError as exc:
+        elapsed_seconds = time.perf_counter() - started_at
+        UPSTREAM_REQUEST_COUNT.labels(
+            service=downstream_service,
+            method=request.method,
+            path=request.url.path,
+            status_code="503",
+        ).inc()
+        UPSTREAM_REQUEST_LATENCY.labels(
+            service=downstream_service,
+            method=request.method,
+            path=request.url.path,
+        ).observe(elapsed_seconds)
         logger.warning(
             "%s %s -> unavailable target=%s error=%s",
             request.method,
@@ -140,7 +174,19 @@ async def proxy_request(request: Request, target_base_url: str, target_path: str
         )
         raise HTTPException(status_code=503, detail="Downstream service unavailable") from exc
 
-    elapsed_ms = (time.perf_counter() - started_at) * 1000
+    elapsed_seconds = time.perf_counter() - started_at
+    elapsed_ms = elapsed_seconds * 1000
+    UPSTREAM_REQUEST_COUNT.labels(
+        service=downstream_service,
+        method=request.method,
+        path=request.url.path,
+        status_code=str(downstream.status_code),
+    ).inc()
+    UPSTREAM_REQUEST_LATENCY.labels(
+        service=downstream_service,
+        method=request.method,
+        path=request.url.path,
+    ).observe(elapsed_seconds)
     logger.info(
         "%s %s -> %s %s %.2fms",
         request.method,
@@ -160,9 +206,9 @@ async def proxy_request(request: Request, target_base_url: str, target_path: str
 
 @app.api_route("/auth/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 async def proxy_auth(path: str, request: Request):
-    return await proxy_request(request, AUTH_SERVICE_URL, f"/auth/{path}")
+    return await proxy_request(request, AUTH_SERVICE_URL, f"/auth/{path}", "auth-service")
 
 
 @app.api_route("/academic/{path:path}", methods=["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"])
 async def proxy_academic(path: str, request: Request):
-    return await proxy_request(request, ACADEMIC_SERVICE_URL, f"/{path}")
+    return await proxy_request(request, ACADEMIC_SERVICE_URL, f"/{path}", "academic-service")
