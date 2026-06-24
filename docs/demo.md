@@ -184,8 +184,6 @@ Demonstrar que o pipeline executa:
 - Scan com Trivy.
 - Build das imagens Docker.
 
-Observação: esta etapa depende da entrega da Pessoa A.
-
 ## 8. Mostrar Imagens No GHCR
 
 No GitHub, abrir:
@@ -207,8 +205,6 @@ Tags esperadas:
 - `vYYYY.MM.DD.run_number`
 - `latest`
 - `sha-<short_sha>`
-
-Observação: esta etapa depende da entrega da Pessoa A.
 
 ## 9. Deploy Local Kubernetes
 
@@ -242,8 +238,6 @@ kubectl port-forward svc/gateway-service 8000:8000 -n plataforma-academica
 Invoke-RestMethod http://localhost:8000/health
 ```
 
-Observação: esta etapa depende da entrega da Pessoa A.
-
 ## 10. Demonstrar Rollback
 
 Executar:
@@ -267,8 +261,6 @@ kubectl rollout status deployment/auth-service -n plataforma-academica
 kubectl rollout status deployment/academic-service -n plataforma-academica
 kubectl rollout status deployment/gateway-service -n plataforma-academica
 ```
-
-Observação: esta etapa depende da entrega da Pessoa A.
 
 ## 11. Fechamento Da Apresentação
 
