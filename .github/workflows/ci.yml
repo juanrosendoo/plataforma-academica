@@ -41,6 +41,17 @@ jobs:
         cd Backend/services/academic-service
         python -m pytest
 
+    - name: Install Gateway Service dependencies
+      run: |
+        cd Backend/services/gateway-service
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+
+    - name: Test Gateway Service
+      run: |
+        cd Backend/services/gateway-service
+        python -m pytest
+
   frontend-build:
     runs-on: ubuntu-latest
 

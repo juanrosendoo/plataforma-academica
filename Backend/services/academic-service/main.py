@@ -1,14 +1,18 @@
 import os
+import time
 from datetime import date
 
 import httpx
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, Header, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 import models
 import schemas
 from database import SessionLocal, engine, get_db
+from security import decode_access_token
+from observability import setup_observability
 from seed import seed_academic_data
 
 
@@ -20,10 +24,22 @@ def seed_data():
         db.close()
 
 
-models.Base.metadata.create_all(bind=engine)
-seed_data()
+def initialize_database(max_attempts: int = 30, delay_seconds: int = 2):
+    for attempt in range(1, max_attempts + 1):
+        try:
+            models.Base.metadata.create_all(bind=engine)
+            seed_data()
+            return
+        except OperationalError:
+            if attempt == max_attempts:
+                raise
+            time.sleep(delay_seconds)
+
+
+initialize_database()
 
 app = FastAPI(title="Academic Service")
+setup_observability(app, "academic-service")
 
 app.add_middleware(
     CORSMiddleware,
@@ -44,6 +60,21 @@ def get_or_404(db: Session, model, item_id: str, label: str):
     if not item:
         raise HTTPException(status_code=404, detail=f"{label} nao encontrada")
     return item
+
+
+def current_user(authorization: str | None = Header(default=None)) -> dict:
+    if not authorization or not authorization.startswith("Bearer "):
+        raise HTTPException(status_code=401, detail="Token ausente")
+
+    try:
+        return decode_access_token(authorization.removeprefix("Bearer ").strip())
+    except ValueError:
+        raise HTTPException(status_code=401, detail="Token invalido")
+
+
+def require_roles(user: dict, *roles: str) -> None:
+    if user.get("tipo") not in roles:
+        raise HTTPException(status_code=403, detail="Permissao insuficiente")
 
 
 def next_id(db: Session, model, prefix: str) -> str:
@@ -107,8 +138,16 @@ def listar_atividades(db: Session = Depends(get_db)):
 
 
 @app.post("/atividades", response_model=schemas.AtividadeOut, status_code=201)
-def criar_atividade(payload: schemas.AtividadeCreate, db: Session = Depends(get_db)):
-    get_or_404(db, models.Turma, payload.id_turma, "Turma")
+def criar_atividade(
+    payload: schemas.AtividadeCreate,
+    db: Session = Depends(get_db),
+    user: dict = Depends(current_user),
+):
+    require_roles(user, "Professor", "Admin")
+    turma = get_or_404(db, models.Turma, payload.id_turma, "Turma")
+    if user.get("tipo") == "Professor" and turma.id_professor != user.get("sub"):
+        raise HTTPException(status_code=403, detail="Professor nao ministra esta turma")
+
     atividade = models.Atividade(id=next_id(db, models.Atividade, "a"), **payload.model_dump())
     db.add(atividade)
     db.commit()
@@ -180,7 +219,16 @@ def minha_entrega(id_atividade: str, id_aluno: str, db: Session = Depends(get_db
 
 
 @app.post("/atividades/{id_atividade}/entregas", response_model=schemas.EntregaOut)
-def submeter_entrega(id_atividade: str, payload: schemas.EntregaCreate, db: Session = Depends(get_db)):
+def submeter_entrega(
+    id_atividade: str,
+    payload: schemas.EntregaCreate,
+    db: Session = Depends(get_db),
+    user: dict = Depends(current_user),
+):
+    require_roles(user, "Aluno")
+    if user.get("sub") != payload.id_aluno:
+        raise HTTPException(status_code=403, detail="Aluno so pode enviar a propria entrega")
+
     get_or_404(db, models.Atividade, id_atividade, "Atividade")
     aluno = db.query(models.Aluno).filter(models.Aluno.id_usuario == payload.id_aluno).first()
     if not aluno:
@@ -211,11 +259,20 @@ def submeter_entrega(id_atividade: str, payload: schemas.EntregaCreate, db: Sess
 
 
 @app.patch("/entregas/{id_entrega}/nota", response_model=schemas.EntregaOut)
-def atribuir_nota(id_entrega: str, payload: schemas.NotaUpdate, db: Session = Depends(get_db)):
+def atribuir_nota(
+    id_entrega: str,
+    payload: schemas.NotaUpdate,
+    db: Session = Depends(get_db),
+    user: dict = Depends(current_user),
+):
+    require_roles(user, "Professor", "Admin")
     if payload.nota < 0 or payload.nota > 10:
         raise HTTPException(status_code=400, detail="Nota invalida")
 
     entrega = get_or_404(db, models.Entrega, id_entrega, "Entrega")
+    if user.get("tipo") == "Professor" and entrega.atividade.turma.id_professor != user.get("sub"):
+        raise HTTPException(status_code=403, detail="Professor nao ministra esta turma")
+
     entrega.nota = payload.nota
     db.commit()
     db.refresh(entrega)
