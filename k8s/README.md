@@ -23,6 +23,19 @@ From the repository root:
   -ImageTag "latest"
 ```
 
+If the GHCR packages are private, pass a GitHub token with package read access:
+
+```powershell
+.\scripts\deploy-local-k8s.ps1 `
+  -ImageOwner "<github-owner>" `
+  -ImageRepository "<github-repo>" `
+  -ImageTag "latest" `
+  -GhcrUsername "<github-username>" `
+  -GhcrToken "<github-token-with-read-packages>"
+```
+
+The script creates/updates the `ghcr-pull-secret` image pull secret in the `plataforma-academica` namespace.
+
 ## URLs
 
 With Docker Desktop Kubernetes, NodePorts are available at:

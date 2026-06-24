@@ -7,7 +7,9 @@ param(
     [string]$ImageRepository,
     [string]$ImageTag = "latest",
     [string]$MysqlRootPassword = "root",
-    [string]$JwtSecretKey = "dev-secret-change-me"
+    [string]$JwtSecretKey = "dev-secret-change-me",
+    [string]$GhcrUsername = "",
+    [string]$GhcrToken = ""
 )
 
 $ErrorActionPreference = "Stop"
@@ -23,6 +25,21 @@ kubectl create secret generic plataforma-secrets `
     --from-literal JWT_SECRET_KEY=$JwtSecretKey `
     --dry-run=client `
     -o yaml | kubectl apply -f -
+
+if ($GhcrUsername -and $GhcrToken) {
+    kubectl create secret docker-registry ghcr-pull-secret `
+        --namespace $Namespace `
+        --docker-server=$Registry `
+        --docker-username=$GhcrUsername `
+        --docker-password=$GhcrToken `
+        --dry-run=client `
+        -o yaml | kubectl apply -f -
+
+    kubectl patch serviceaccount default `
+        --namespace $Namespace `
+        --type merge `
+        -p '{"imagePullSecrets":[{"name":"ghcr-pull-secret"}]}'
+}
 
 kubectl apply -f (Join-Path $k8sRoot "configmap.yaml")
 kubectl apply -f (Join-Path $k8sRoot "mysql-auth.yaml")
