@@ -210,15 +210,15 @@ sequenceDiagram
 
 ```mermaid
 flowchart LR
-    Auth[auth-service] --> MetricsAuth[/metrics]
-    Academic[academic-service] --> MetricsAcademic[/metrics]
-    MetricsAuth --> Prometheus[Prometheus]
-    MetricsAcademic --> Prometheus
+    Auth["auth-service"] --> AuthMetrics["/metrics"]
+    Academic["academic-service"] --> AcademicMetrics["/metrics"]
+    AuthMetrics --> Prometheus["Prometheus"]
+    AcademicMetrics --> Prometheus
 
-    DockerLogs[Logs dos containers] --> Promtail[Promtail]
-    Promtail --> Loki[Loki]
+    DockerLogs["Logs dos containers"] --> Promtail["Promtail"]
+    Promtail --> Loki["Loki"]
 
-    Prometheus --> Grafana[Grafana]
+    Prometheus --> Grafana["Grafana"]
     Loki --> Grafana
-    Grafana --> Dashboard[Dashboard de Observabilidade]
+    Grafana --> Dashboard["Dashboard de Observabilidade"]
 ```
