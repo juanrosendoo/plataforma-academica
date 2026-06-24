@@ -1,0 +1,13 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: plataforma-config
+  namespace: plataforma-academica
+data:
+  AUTH_DB_NAME: auth_db
+  ACADEMIC_DB_NAME: academic_db
+  JWT_ALGORITHM: HS256
+  JWT_EXPIRE_MINUTES: "60"
+  AUTH_SERVICE_URL: http://auth-service:8000
+  ACADEMIC_SERVICE_URL: http://academic-service:8000
+  LOG_LEVEL: INFO
