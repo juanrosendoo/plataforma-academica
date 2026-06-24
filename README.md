@@ -1,38 +1,46 @@
 # Plataforma de Gerenciamento Acadêmico
 
-## Documento Arquitetural e Definição dos Microsserviços
-Para atender ao cenário de uma plataforma acadêmica escalável voltada para o modelo de negócios de uma startup, optamos por uma arquitetura baseada em microsserviços. O sistema foi dividido inicialmente em dois serviços independentes para garantir a separação de responsabilidades e evitar o acoplamento do código:
+Plataforma acadêmica baseada em microsserviços para uma startup, com backend em FastAPI, frontend React/Vite, bancos MySQL, API Gateway, Docker Compose e stack de observabilidade com Prometheus, Grafana, Loki e Promtail.
 
-1. **Auth Service**: Responsável centralizado pelo gerenciamento de usuários (professores e alunos), credenciais, armazenamento seguro de senhas e autenticação simples.
-2. **Academic Service**: Responsável pelas regras de negócio acadêmicas core, controlando o ciclo de vida de disciplinas, turmas, atividades, entregas e matrículas.
+## Serviços
 
-### Justificativas e Decisões Técnicas
-*   **Stack Tecnológica:** As APIs REST foram desenvolvidas em **Python** utilizando o framework **FastAPI** e o servidor **Uvicorn**. Escolhemos o FastAPI por sua alta performance, suporte nativo a operações assíncronas e geração automatizada de documentação (Swagger UI), o que acelera o desenvolvimento de microsserviços.
-*   **Banco de Dados:** O banco de dados escolhido foi o **MySQL 8.0**. Como o domínio acadêmico possui entidades altamente estruturadas e ligadas por fortes relacionamentos (como Aluno, Turma e Matrícula), o modelo relacional garante a consistência e a integridade referencial dos dados exigidas pelo sistema.
-*   **Comunicação:** A comunicação entre os serviços ocorrerá via chamadas HTTP seguindo o padrão **API REST**, permitindo que o *Academic Service* consulte o *Auth Service* para validar usuários de forma rápida e síncrona.
-*   **Isolamento e Segurança:** Cada microsserviço roda em seu próprio container Docker de forma totalmente independente, garantindo o isolamento da infraestrutura exigido pelo projeto. Seguindo as boas práticas de DevOps, todas as credenciais e strings de conexão foram externalizadas em um arquivo `.env` local e são injetadas dinamicamente nos containers via variáveis de ambiente, impedindo a exposição de dados sensíveis no código-fonte.
+- `auth-service`: autenticação, usuários, senhas com hash e emissão de JWT.
+- `academic-service`: disciplinas, turmas, atividades, entregas e notas.
+- `gateway-service`: entrada única da API para o frontend.
+- `Frontend`: aplicação web React/Vite.
+- `db-auth` e `db-academic`: bancos MySQL separados por domínio.
+- `prometheus`, `grafana`, `loki`, `promtail`: métricas, dashboards e logs centralizados.
 
-*Nota: O modelo conceitual (diagrama que detalha as entidades Usuario, Aluno, Professor, Disciplina, Turma, Matricula, Atividade e Entrega) encontra-se na pasta raiz deste repositório para avaliação do modelo de dados.*
+## Execução Local Com Docker Compose
 
-## Como rodar o projeto (Sprint 1)
-Navegue até a pasta `infra/` e execute o comando para subir toda a infraestrutura de forma orquestrada:
-```bash
+```powershell
+cd Backend\infra
+copy .env.example .env
 docker-compose up --build
 ```
 
-## API Gateway Responsibilities
-The `gateway-service` is the planned single public API entry point for the frontend. Its responsibility is to centralize browser-facing concerns such as CORS, basic request logging, health checks, service URL configuration, and forwarding authentication headers to downstream services.
+URLs principais:
 
-The gateway must not own academic or authentication business rules. User data remains in `auth-service`, and academic data such as classes, activities, submissions, and grades remains in `academic-service`.
+- Frontend: `http://localhost:8080`
+- API Gateway: `http://localhost:8000`
+- Auth Service: `http://localhost:8001`
+- Academic Service: `http://localhost:8002`
+- Observabilidade: `http://localhost:3100`
+- Grafana: `http://localhost:3000`
+- Prometheus: `http://localhost:9090`
+- Loki API: `http://localhost:3101`
 
-The gateway exposes `/auth/*` for auth-service requests and `/academic/*` for academic-service requests. For example, `POST /auth/login` is forwarded to auth-service as `/auth/login`, while `GET /academic/disciplinas` is forwarded to academic-service as `/disciplinas`.
+O frontend roda separadamente:
 
-## Authentication
-The platform uses PBKDF2 password hashes in `auth-service` and signed JWT access tokens. The frontend stores the returned token and sends it as `Authorization: Bearer <token>` through the API Gateway.
+```powershell
+cd Frontend
+npm install
+npm run dev
+```
 
-Demo credentials:
+## Credenciais de Demonstração
 
-| Role | Email | Password |
+| Perfil | Email | Senha |
 | --- | --- | --- |
 | Admin | `admin@uni.edu` | `admin123` |
 | Professor | `professor@uni.edu` | `professor123` |
@@ -41,49 +49,21 @@ Demo credentials:
 | Aluno | `maria@uni.edu` | `aluno123` |
 | Aluno | `pedro@uni.edu` | `aluno123` |
 
-Protected academic actions require valid roles:
+## Documentação Técnica
 
-- Professors or admins can create activities.
-- Students can submit only their own deliveries.
-- Professors or admins can assign grades.
+- [Arquitetura](docs/architecture.md)
+- [Deploy](docs/deployment.md)
+- [Observabilidade](docs/observability.md)
+- [Roteiro de demonstração](docs/demo.md)
 
-## Environment Configuration
-Docker Compose reads environment variables from `Backend/infra/.env`.
+## Desenvolvimento
 
-For local development, use:
+Fluxo recomendado:
 
-```bash
-cd Backend/infra
-cp .env.example .env
-docker compose up --build
-```
+1. Criar branch a partir de `main`.
+2. Implementar a tarefa.
+3. Executar testes e validações locais.
+4. Abrir Pull Request.
+5. Realizar Code Review antes do merge.
 
-The `.env` file is ignored by Git because it may contain local secrets. Commit `.env.example`, not `.env`.
-
-## Database Access
-When running with Docker Compose, two MySQL databases are exposed locally:
-
-| Service | Host | Port | Database | User |
-| --- | --- | --- | --- | --- |
-| Auth DB | `localhost` | `3308` | `auth_db` | `root` |
-| Academic DB | `localhost` | `3307` | `academic_db` | `root` |
-
-The password comes from `MYSQL_ROOT_PASSWORD` in `Backend/infra/.env`.
-
-You can inspect the databases with a GUI such as DBeaver or MySQL Workbench using the connection data above.
-
-You can also use Docker directly:
-
-```bash
-docker compose exec db-auth mysql -uroot -p auth_db
-docker compose exec db-academic mysql -uroot -p academic_db
-```
-
-Useful SQL commands:
-
-```sql
-SHOW TABLES;
-SELECT * FROM usuarios;
-SELECT * FROM atividades;
-SELECT * FROM entregas;
-```
+Estratégia de versionamento sugerida para o projeto: Trunk-Based Development com branches curtas no padrão `feat/*`, `fix/*`, `chore/*` e Pull Requests para `main`.
